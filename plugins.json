@@ -1,0 +1,23 @@
+[
+    {
+        "fileHash": "sha256-ea95059cefcc41abf6a2f5a8d910abe196671bedbc6bed840b5a924042b1af61",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/comibrand00-stack/MovieProviderRepo",
+        "fileSize": 99076,
+        "status": 1,
+        "language": "ar",
+        "authors": [
+            "comibrand00-stack"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries",
+            "Anime"
+        ],
+        "version": 13,
+        "internalName": "MovieProvider",
+        "description": "TopCinema, Qesset, Reelix and BingeBang - movies, series and anime providers",
+        "url": "https://raw.githubusercontent.com/comibrand00-stack/MovieProviderRepo/builds/MovieProvider.cs3",
+        "name": "MovieProvider"
+    }
+]
