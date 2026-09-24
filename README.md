@@ -40,7 +40,7 @@ This repository provides a movie provider extension for [CloudStream](https://gi
 2. Go to **Settings** > **Extensions** > **Install from URL**
 3. Enter the repository URL:
    ```
-   https://raw.githubusercontent.com/YourUsername/MovieProviderRepo/main/repo.json
+   https://raw.githubusercontent.com/comibrand00-stack/MovieProviderRepo/master/repo.json
    ```
 4. The **MovieProvider** will appear in the provider list
 
@@ -48,7 +48,7 @@ This repository provides a movie provider extension for [CloudStream](https://gi
 
 ```bash
 # Clone the repository
-git clone https://github.com/YourUsername/MovieProviderRepo.git
+git clone https://github.com/comibrand00-stack/MovieProviderRepo.git
 cd MovieProviderRepo
 
 # Build the provider
