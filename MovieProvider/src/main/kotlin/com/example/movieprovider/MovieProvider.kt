@@ -56,19 +56,13 @@ class MovieProvider : MainAPI() {
         val poster = document.selectFirst("div.poster img")?.attr("src")?.ifBlank { null }
         val year = document.selectFirst(".year")?.text()?.toIntOrNull()
         val plot = document.selectFirst(".plot, .description")?.text()?.ifBlank { null }
-        val rating = document.selectFirst(".rating")?.text()?.toFloatOrNull()
         val tags = document.select(".genres a").map { it.text() }.ifEmpty { null }
-        val actors = document.select(".cast a").map { it.text() }.ifEmpty { null }
-        val trailer = document.selectFirst("iframe.trailer")?.attr("src")?.ifBlank { null }
 
         return newMovieLoadResponse(title, url, TvType.Movie, url) {
             this.posterUrl = fixUrlNull(poster)
             this.year = year
             this.plot = plot
-            this.rating = rating
             this.tags = tags
-            this.actors = actors
-            trailer?.let { addTrailer(fixUrl(it)) }
         }
     }
 
@@ -85,10 +79,11 @@ class MovieProvider : MainAPI() {
             fixUrl(src)
         }
 
+        var found = false
         sources.forEach { src ->
             if (src.contains(".mp4") || src.contains(".m3u8")) {
                 callback(
-                    ExtractorLink(
+                    newExtractorLink(
                         source = name,
                         name = name,
                         url = src,
@@ -97,9 +92,10 @@ class MovieProvider : MainAPI() {
                         else ExtractorLinkType.VIDEO
                     )
                 )
+                found = true
             }
         }
 
-        return sources.isNotEmpty()
+        return found
     }
 }
