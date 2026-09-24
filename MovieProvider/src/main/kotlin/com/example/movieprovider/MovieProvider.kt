@@ -87,7 +87,6 @@ class MovieProvider : MainAPI() {
                         source = name,
                         name = name,
                         url = src,
-                        referer = mainUrl,
                         type = if (src.contains(".m3u8")) ExtractorLinkType.M3U8
                         else ExtractorLinkType.VIDEO
                     )
