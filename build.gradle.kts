@@ -7,13 +7,37 @@ buildscript {
     repositories {
         google()
         mavenCentral()
-        maven("https://jitpack.io")
+        // The cloudstream gradle plugin is resolved as a raw artifact to avoid
+        // JitPack's broken maven-metadata.xml unique-snapshot file serving.
+        ivy("https://jitpack.io") {
+            name = "jitpackArtifacts"
+            patternLayout {
+                artifact("com/github/recloudstream/gradle/[module]/[revision]/[module]-[revision].[ext]")
+            }
+            metadataSources {
+                artifact()
+            }
+            content {
+                includeModule("com.github.recloudstream.gradle", "gradle")
+            }
+        }
+        maven("https://jitpack.io") {
+            content {
+                excludeModule("com.github.recloudstream.gradle", "gradle")
+            }
+        }
     }
 
     dependencies {
         classpath("com.android.tools.build:gradle:8.7.3")
-        classpath("com.github.recloudstream:gradle:-SNAPSHOT")
+        classpath("com.github.recloudstream.gradle:gradle:-SNAPSHOT")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.0")
+        // Explicit runtime dependencies of the cloudstream gradle plugin
+        // (the artifact() metadata source above resolves no transitives;
+        // kotlin-stdlib comes from Gradle's embedded Kotlin).
+        classpath("org.ow2.asm:asm:9.9.1")
+        classpath("org.ow2.asm:asm-tree:9.9.1")
+        classpath("com.github.vidstige:jadb:v1.2.1")
     }
 }
 
