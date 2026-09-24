@@ -1,11 +1,12 @@
 package com.example.movieprovider
 
-import com.lagradost.cloudstream3.Plugin
-import com.lagradost.cloudstream3.annotation.CloudstreamPlugin
+import android.content.Context
+import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
+import com.lagradost.cloudstream3.plugins.Plugin
 
 @CloudstreamPlugin
 class MoviePlugin : Plugin() {
-    override fun load() {
+    override fun load(context: Context) {
         registerMainAPI(MovieProvider())
     }
 }
