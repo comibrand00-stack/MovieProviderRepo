@@ -1,0 +1,7 @@
+.gradle/
+.kotlin/
+build/
+MovieProvider/build/
+local.properties
+.idea/
+*.iml
