@@ -1,9 +1,9 @@
-version = 1
+version = 2
 
 cloudstream {
-    description = "Movie streaming provider for CloudStream 3"
+    description = "TopCinema - Arabic movies, series and anime provider"
     authors = listOf("comibrand00-stack")
     status = 1
-    tvTypes = listOf("Movie")
-    language = "en"
+    tvTypes = listOf("Movie", "TvSeries", "Anime")
+    language = "ar"
 }

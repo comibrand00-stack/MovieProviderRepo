@@ -1,36 +1,38 @@
 # MovieProvider Repository
 
-A CloudStream 3 plugin repository containing movie streaming providers written in Kotlin.
+A CloudStream 3 plugin repository containing an Arabic movie/series/anime provider for **TopCinema** (توب سينما).
 
 ## Overview
 
-This repository provides a movie provider extension for [CloudStream](https://github.com/recloudstream/cloudstream), an Android TV streaming application. The `MovieProvider` adds movie streaming capabilities by scraping content from supported movie websites.
+This repository provides a provider extension for [CloudStream](https://github.com/recloudstream/cloudstream), an Android TV streaming application. The `TopCinema` provider scrapes content from `topcinema.fan`.
 
 ## Features
 
-- **Movie Search**: Search for movies by title
-- **Home Page**: Browse popular movies and recent releases
-- **Movie Details**: View ratings, cast, genres, plot, and trailers
-- **Streaming Links**: Resolve and play movie sources
-- **Recommendations**: Auto-generated movie suggestions
+- **Homepage sections**: Slider, latest episodes, movies, anime, Asian series, Netflix picks
+- **Search**: Search movies, series and anime by title
+- **Movie details**: Poster, IMDb rating, year, genres, plot, cast, quality
+- **Series/Anime**: Season and episode lists
+- **Streaming links**: Multi-server watch page resolution (VideoTube, Doodstream, Streamtape, Mixdrop, etc.)
+- **Download support**: Download page links when available
+- **Chromecast**: Supported
 
-## Provider: MovieProvider
+## Provider: TopCinema
 
 | Property | Value |
 |----------|-------|
-| **Name** | MovieProvider |
-| **Supported Types** | Movie |
-| **Language** | English (`en`) |
+| **Name** | TopCinema |
+| **Supported Types** | Movie, TvSeries, Anime |
+| **Language** | Arabic (`ar`) |
 | **Status** | Active |
 | **Chromecast** | Yes |
 | **Download** | Yes |
 
 ### Methods
 
-- `getMainPage()` - Fetches homepage with popular and recent movies
-- `search(query)` - Searches for movies by keyword
-- `load(url)` - Loads movie details including cast, genre, plot, and episodes
-- `loadLinks(data)` - Resolves playable streaming links
+- `getMainPage()` - Homepage sections from topcinema.fan
+- `search(query)` - Search via `/search/?query=&type=all`
+- `load(url)` - Movie/series details including seasons and episodes
+- `loadLinks(data)` - Resolves watch-page servers via `Single/Server.php` AJAX and extracts embeds
 
 ## Installation
 
@@ -42,7 +44,7 @@ This repository provides a movie provider extension for [CloudStream](https://gi
    ```
    https://raw.githubusercontent.com/comibrand00-stack/MovieProviderRepo/master/repo.json
    ```
-4. The **MovieProvider** will appear in the provider list
+4. The **TopCinema** provider will appear in the provider list
 
 ### Build from Source
 
@@ -70,20 +72,19 @@ MovieProviderRepo/
 │       ├── AndroidManifest.xml   # Android manifest
 │       └── kotlin/com/example/movieprovider/
 │           ├── MoviePlugin.kt    # Plugin entry point
-│           └── MovieProvider.kt  # MainAPI implementation
+│           └── MovieProvider.kt  # TopCinema MainAPI implementation
 ├── build.gradle.kts              # Root build configuration
 ├── settings.gradle.kts           # Project settings
 ├── repo.json                     # Repository manifest
 └── .github/workflows/build.yml   # CI/CD pipeline
 ```
 
-### Adding a New Provider
+### Site Integration Notes
 
-1. Create a new Kotlin class extending `MainAPI`
-2. Implement the required methods: `search()`, `getMainPage()`, `load()`, `loadLinks()`
-3. Add the provider to `MoviePlugin.kt` with `registerMainAPI()`
-4. Update `build.gradle.kts` with the provider metadata
-5. Create a pull request
+- Watch page servers: POST `{theme}/Ajaxat/Single/Server.php` with `id=<post_id>&i=<server_index>`
+- Search: GET `/search/?query=<q>&type=all|movies|series`
+- Series pages: `/series/<slug>/` with `section.allepcont` episodes and `section.allseasonss` seasons
+- Episode/movie pages: title prefix (`فيلم` / `مسلسل` / `انمي`) determines type
 
 ## License
 
@@ -92,10 +93,6 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ## Disclaimer
 
 This project is for educational purposes only. Streaming copyrighted content without authorization is illegal. Use at your own risk.
-
-## Contributing
-
-Contributions are welcome! Please fork the repository and submit a pull request.
 
 ## Acknowledgments
 
