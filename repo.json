@@ -1,0 +1,8 @@
+{
+    "name": "MovieProvider Repository",
+    "description": "A collection of movie streaming providers for CloudStream 3",
+    "manifestVersion": 1,
+    "pluginLists": [
+        "https://raw.githubusercontent.com/YourUsername/MovieProviderRepo/builds/plugins.json"
+    ]
+}
