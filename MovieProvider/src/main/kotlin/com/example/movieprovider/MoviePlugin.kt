@@ -9,5 +9,6 @@ class MoviePlugin : Plugin() {
     override fun load(context: Context) {
         registerMainAPI(TopCinema())
         registerMainAPI(MovieHd4k())
+        registerMainAPI(Qesset())
     }
 }
