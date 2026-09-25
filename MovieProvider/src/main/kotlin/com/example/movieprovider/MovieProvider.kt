@@ -193,13 +193,14 @@ class TopCinema : MainAPI() {
 
         val doc = app.get(watchUrl).document
         var found = false
+        val seen = mutableSetOf<String>()
 
         val serverItems = doc.select(".watch--servers--list li.server--item")
         val postId = serverItems.firstOrNull()?.attr("data-id")
 
         val initialIframe = doc.selectFirst(".player--iframe iframe")?.attr("src")
         if (!initialIframe.isNullOrBlank()) {
-            found = resolveEmbed(initialIframe, watchUrl, subtitleCallback, callback) || found
+            found = resolveEmbed(initialIframe, watchUrl, subtitleCallback, callback, seen) || found
         }
 
         if (!postId.isNullOrBlank()) {
@@ -221,7 +222,7 @@ class TopCinema : MainAPI() {
 
                     val iframe = Regex("""src\s*=\s*["']([^"']+)["']""").find(resp)?.groupValues?.get(1)
                     if (!iframe.isNullOrBlank()) {
-                        val ok = resolveEmbed(iframe, watchUrl, subtitleCallback, callback, serverName)
+                        val ok = resolveEmbed(iframe, watchUrl, subtitleCallback, callback, seen, serverName)
                         found = ok || found
                     }
                 } catch (_: Exception) {
@@ -254,33 +255,79 @@ class TopCinema : MainAPI() {
         return found
     }
 
+    private fun extractDirectUrls(raw: String): List<Pair<String, Boolean>> {
+        val norm = raw.replace("\\/", "/").replace("&amp;", "&")
+        val rx = Regex(
+            """https?://[^\s"'<>\\]+?\.(m3u8|mp4)(?:[^\s"'<>\\]*)?""",
+            RegexOption.IGNORE_CASE
+        )
+        return rx.findAll(norm)
+            .map { m -> m.value.trimEnd('.', ',', ';', ')', ']') to m.groupValues[1].equals("m3u8", true) }
+            .distinctBy { it.first }
+            .toList()
+    }
+
+    private fun embedOrigin(url: String): String {
+        val m = Regex("""^(https?://[^/]+)""").find(url)
+        return if (m != null) "${m.groupValues[1]}/" else url
+    }
+
+    private suspend fun emitLink(
+        url: String,
+        isM3u8: Boolean,
+        headerRef: String?,
+        label: String,
+        sourceName: String,
+        seen: MutableSet<String>,
+        callback: (ExtractorLink) -> Unit
+    ) {
+        if (!seen.add(url)) return
+        val link = newExtractorLink(
+            source = sourceName,
+            name = label,
+            url = url,
+            type = if (isM3u8) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
+        )
+        if (headerRef != null) {
+            link.headers = mapOf("Referer" to headerRef)
+            link.referer = headerRef
+        }
+        callback(link)
+    }
+
     private suspend fun resolveEmbed(
         embedUrl: String,
         referer: String,
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit,
+        seen: MutableSet<String>,
         sourceName: String = name
     ): Boolean {
         if (embedUrl.contains(".m3u8")) {
-            callback(
-                newExtractorLink(
-                    source = sourceName,
-                    name = sourceName,
-                    url = embedUrl,
-                    type = ExtractorLinkType.M3U8
-                )
-            )
+            emitLink(embedUrl, true, null, sourceName, sourceName, seen, callback)
             return true
         }
         if (embedUrl.contains(".mp4")) {
-            callback(
-                newExtractorLink(
-                    source = sourceName,
-                    name = sourceName,
-                    url = embedUrl,
-                    type = ExtractorLinkType.VIDEO
-                )
-            )
+            emitLink(embedUrl, false, null, sourceName, sourceName, seen, callback)
+            return true
+        }
+
+        val candidates = LinkedHashMap<String, Boolean>()
+        try {
+            val page = app.get(embedUrl, headers = mapOf("Referer" to referer)).text
+            extractDirectUrls(page).forEach { if (!candidates.containsKey(it.first)) candidates[it.first] = it.second }
+            try {
+                extractDirectUrls(getAndUnpack(page)).forEach { if (!candidates.containsKey(it.first)) candidates[it.first] = it.second }
+            } catch (_: Exception) {
+            }
+        } catch (_: Exception) {
+        }
+
+        if (candidates.isNotEmpty()) {
+            val origin = embedOrigin(embedUrl)
+            candidates.forEach { (url, isM3u8) ->
+                emitLink(url, isM3u8, origin, sourceName, sourceName, seen, callback)
+            }
             return true
         }
 
