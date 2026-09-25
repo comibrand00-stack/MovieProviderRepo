@@ -93,6 +93,7 @@ subprojects {
     dependencies {
         val cloudstream by configurations
         val implementation by configurations
+        val compileOnly by configurations
 
         cloudstream("com.lagradost:cloudstream3:pre-release")
 
@@ -100,6 +101,8 @@ subprojects {
         implementation("com.github.Blatzar:NiceHttp:0.4.11")
         implementation("org.jsoup:jsoup:1.18.3")
         implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.13.1")
+        // Provided by the CloudStream app at runtime; compileOnly so it is never packaged.
+        compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1")
     }
 }
 

@@ -1,4 +1,4 @@
-version = 4
+version = 5
 
 cloudstream {
     description = "TopCinema - Arabic movies, series and anime provider"

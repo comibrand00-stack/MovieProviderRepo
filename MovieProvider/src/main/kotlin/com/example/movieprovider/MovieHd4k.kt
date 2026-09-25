@@ -2,6 +2,9 @@ package com.example.movieprovider
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 
@@ -15,24 +18,31 @@ class MovieHd4k : MainAPI() {
     override val hasDownloadSupport = true
 
     private val homeSections = listOf(
+        "View All" to "/movies/",
         "Latest Movies" to "/latest-movie/",
         "Popular Movies" to "/popular-movie/",
         "Top Rated Movies" to "/top-rated-movie/",
         "Upcoming Movies" to "/upcoming-movie/",
         "Popular TV" to "/popular-tv/",
         "On Air TV" to "/on-the-air-tv/",
+        "Top Rated TV" to "/top-rated-tv/",
+        "Airing Today TV" to "/airing-today-tv/",
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse? {
         if (page > 1) return null
-        val lists = mutableListOf<HomePageList>()
 
-        homeSections.forEach { (title, path) ->
-            try {
-                val items = parseCards(app.get(mainUrl + path).document)
-                if (items.isNotEmpty()) lists.add(HomePageList(title, items, true))
-            } catch (_: Exception) {
-            }
+        val lists = coroutineScope {
+            homeSections.map { (title, path) ->
+                async {
+                    try {
+                        val items = parseCards(app.get(mainUrl + path).document)
+                        if (items.isNotEmpty()) HomePageList(title, items, true) else null
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+            }.awaitAll().filterNotNull()
         }
 
         return if (lists.isEmpty()) null else newHomePageResponse(lists)
