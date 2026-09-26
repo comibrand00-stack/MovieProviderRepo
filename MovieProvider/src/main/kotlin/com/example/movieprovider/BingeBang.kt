@@ -2,6 +2,9 @@ package com.example.movieprovider
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
@@ -26,6 +29,9 @@ class BingeBang : MainAPI() {
 
         const val SUB_SOURCE = "https://www.subtitlecat.com"
         const val IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
+
+        const val ROW_BATCH_SIZE = 6
+        const val MAX_ROW_ITEMS = 24
     }
 
     private val mainRows = listOf(
@@ -41,6 +47,20 @@ class BingeBang : MainAPI() {
         "Top Rated Series" to "list/tv_top_rated?limit=24",
         "New Releases (Movies)" to "discover/movie?sort=date_found&limit=48",
         "New Releases (Series)" to "discover/tv?sort=date_found&limit=48",
+    )
+
+    // streaming services exposed by the site (<meta name="bb-providers">)
+    private val serviceRows = listOf(
+        "Netflix" to "netflix",
+        "Amazon Prime Video" to "prime-video",
+        "Disney+" to "disney-plus",
+        "HBO Max" to "hbo-max",
+        "Hulu" to "hulu",
+        "Apple TV+" to "apple-tv-plus",
+        "Paramount+" to "paramount-plus",
+        "Peacock" to "peacock",
+        "Crunchyroll" to "crunchyroll",
+        "MGM+" to "mgm-plus",
     )
 
     private val languageNames = mapOf(
@@ -61,19 +81,34 @@ class BingeBang : MainAPI() {
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse? {
         if (page > 1) return null
 
-        val lists = mainRows.mapNotNull { (label, path) ->
-            val items = try {
-                val text = app.get(apiUrl(path), headers = apiHeaders()).text
-                val root = JSONObject(text)
-                val results = root.optJSONArray("results") ?: return@mapNotNull null
-                results.toSearchList()
-            } catch (_: Exception) {
-                return@mapNotNull null
+        val jobs = mutableListOf<Pair<String, String>>()
+        jobs += mainRows
+        serviceRows.forEach { (service, slug) ->
+            jobs += "$service Movies" to "discover/movie?provider=$slug&sort=popularity.desc"
+            jobs += "$service Series" to "discover/tv?provider=$slug&sort=popularity.desc"
+        }
+
+        val lists = mutableListOf<HomePageList>()
+        for (batch in jobs.chunked(ROW_BATCH_SIZE)) {
+            val fetched = coroutineScope {
+                batch.map { (label, path) -> async { fetchRow(label, path) } }.awaitAll()
             }
-            if (items.isEmpty()) null else HomePageList(label, items, true)
+            lists += fetched.filterNotNull()
         }
 
         return if (lists.isEmpty()) null else newHomePageResponse(lists)
+    }
+
+    private suspend fun fetchRow(label: String, path: String): HomePageList? {
+        val items = try {
+            val text = app.get(apiUrl(path), headers = apiHeaders()).text
+            JSONObject(text).optJSONArray("results")?.toSearchList()
+        } catch (_: Exception) {
+            null
+        } ?: return null
+
+        if (items.isEmpty()) return null
+        return HomePageList(label, items.take(MAX_ROW_ITEMS), true)
     }
 
     // ---------------------------------------------------------------- search
