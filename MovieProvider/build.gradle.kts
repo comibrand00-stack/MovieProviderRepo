@@ -1,4 +1,4 @@
-version = 7
+version = 8
 
 cloudstream {
     description = "TopCinema, MovieHD 4K, Qesset and Reelix - movies, series and anime providers"

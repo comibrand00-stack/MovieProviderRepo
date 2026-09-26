@@ -24,6 +24,7 @@ class Reelix : MainAPI() {
         const val DETAILS_FN = "a6fff7597c9ac97a096d9579ecfc92f89ba40083970d0ef09d68b514f4097315"
         const val EPISODES_FN = "fcdfe48157410177238cf68ab5792d838c359a0b054bead22e24f99a5c3f66e9"
         const val RECS_FN = "cc8ece31eba14c95ac1289a8eae31f48cdbd31002a0acd4ff8de6c15a0aae461"
+        const val LIST_FN = "ff28fae10dc7928d9028fd470b4ed4f031e0fb1fced20dea02abeafedfb4ed0f"
 
         const val BROWSER_UA =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
@@ -36,6 +37,13 @@ class Reelix : MainAPI() {
         "popularTv" to "Popular TV",
         "popularAnime" to "Popular Anime",
         "topRated" to "Top Rated",
+    )
+
+    private val browseRows = listOf(
+        "trending" to "Trending (All)",
+        "movies" to "Movies (All)",
+        "tv" to "TV Series (All)",
+        "anime" to "Anime (All)",
     )
 
     private val autoPlayScript = """
@@ -62,9 +70,31 @@ class Reelix : MainAPI() {
             val raw = result[key] as? List<*> ?: return@mapNotNull null
             val items = raw.mapNotNull { itemToResponse(it as? Map<*, *>) }
             if (items.isEmpty()) null else HomePageList(label, items, true)
+        }.toMutableList()
+
+        if (lists.isNotEmpty()) {
+            browseRows.forEach { (key, label) ->
+                fetchBrowseList(key, label)?.let { lists += it }
+            }
         }
 
         return if (lists.isEmpty()) null else newHomePageResponse(lists)
+    }
+
+    private suspend fun fetchBrowseList(list: String, label: String): HomePageList? {
+        val fields = listOf(
+            "list" to sStr(list),
+            "lang" to sStr(API_LANG),
+        )
+        val result = try {
+            callServerFn(LIST_FN, dataObject(fields)) as? Map<*, *> ?: return null
+        } catch (_: Exception) {
+            return null
+        }
+        val items = (result["items"] as? List<*>)?.mapNotNull { itemToResponse(it as? Map<*, *>) }
+            .orEmpty()
+        if (items.isEmpty()) return null
+        return HomePageList(label, items, true)
     }
 
     // ---------------------------------------------------------------- search
