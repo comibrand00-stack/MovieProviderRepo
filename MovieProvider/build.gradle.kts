@@ -1,7 +1,7 @@
-version = 9
+version = 10
 
 cloudstream {
-    description = "TopCinema, Qesset and Reelix - movies, series and anime providers"
+    description = "TopCinema, Qesset, Reelix and BingeBang - movies, series and anime providers"
     authors = listOf("comibrand00-stack")
     status = 1
     tvTypes = listOf("Movie", "TvSeries", "Anime")
