@@ -1,7 +1,7 @@
-version = 6
+version = 7
 
 cloudstream {
-    description = "TopCinema - Arabic movies, series and anime providers"
+    description = "TopCinema, MovieHD 4K, Qesset and Reelix - movies, series and anime providers"
     authors = listOf("comibrand00-stack")
     status = 1
     tvTypes = listOf("Movie", "TvSeries", "Anime")

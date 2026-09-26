@@ -10,5 +10,6 @@ class MoviePlugin : Plugin() {
         registerMainAPI(TopCinema())
         registerMainAPI(MovieHd4k())
         registerMainAPI(Qesset())
+        registerMainAPI(Reelix())
     }
 }
