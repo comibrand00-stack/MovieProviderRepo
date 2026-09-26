@@ -28,6 +28,8 @@ class Reelix : MainAPI() {
 
         const val BROWSER_UA =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+
+        const val SUB_SOURCE = "https://www.subtitlecat.com"
     }
 
     private val homeRows = listOf(
@@ -170,7 +172,12 @@ class Reelix : MainAPI() {
         } ?: mutableListOf()
 
         if (!isTv) {
-            return newMovieLoadResponse(title, url, TvType.Movie, vidcoreMovie(tmdbId)) {
+            return newMovieLoadResponse(
+                title,
+                url,
+                TvType.Movie,
+                encodeStreamData(vidcoreMovie(tmdbId), title, year, null, null),
+            ) {
                 this.posterUrl = poster
                 this.year = year
                 this.plot = plot
@@ -201,7 +208,7 @@ class Reelix : MainAPI() {
 
         val episodes = mutableListOf<Episode>()
         for (season in seasonNumbers) {
-            episodes += fetchEpisodes(id, tmdbId, season)
+            episodes += fetchEpisodes(id, tmdbId, season, title)
         }
         if (episodes.isEmpty()) throw ErrorLoadingException("Reelix: no episodes")
 
@@ -220,7 +227,12 @@ class Reelix : MainAPI() {
         }
     }
 
-    private suspend fun fetchEpisodes(id: String, tmdbId: String, season: Int): List<Episode> {
+    private suspend fun fetchEpisodes(
+        id: String,
+        tmdbId: String,
+        season: Int,
+        showTitle: String,
+    ): List<Episode> {
         val fields = listOf(
             "id" to sStr(id),
             "season" to sInt(season),
@@ -235,7 +247,15 @@ class Reelix : MainAPI() {
         return raw.mapNotNull { entry ->
             val episode = entry as? Map<*, *> ?: return@mapNotNull null
             val number = (episode["number"] as? Number)?.toInt() ?: return@mapNotNull null
-            newEpisode(vidcoreTv(tmdbId, season, number)) {
+            newEpisode(
+                encodeStreamData(
+                    vidcoreTv(tmdbId, season, number),
+                    showTitle,
+                    null,
+                    season,
+                    number,
+                )
+            ) {
                 this.season = season
                 this.episode = number
                 this.name = episode["title"] as? String
@@ -267,14 +287,109 @@ class Reelix : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        if (!data.startsWith("http")) return false
+        val stream = decodeStreamData(data) ?: return false
 
-        for (target in streamTargets(data)) {
+        for (target in streamTargets(stream.url)) {
             val link = resolveStream(target) ?: continue
             callback(link)
+            findArabicSubtitle(stream)?.let { subtitleCallback(it) }
             return true
         }
         return false
+    }
+
+    private data class StreamData(
+        val url: String,
+        val title: String?,
+        val year: Int?,
+        val season: Int?,
+        val episode: Int?,
+    )
+
+    private fun encodeStreamData(
+        url: String,
+        title: String?,
+        year: Int?,
+        season: Int?,
+        episode: Int?,
+    ): String {
+        val json = JSONObject()
+        json.put("u", url)
+        if (!title.isNullOrBlank()) json.put("t", title)
+        if (year != null) json.put("y", year)
+        if (season != null) json.put("s", season)
+        if (episode != null) json.put("e", episode)
+        return json.toString()
+    }
+
+    private fun decodeStreamData(data: String): StreamData? {
+        val json = try {
+            JSONObject(data)
+        } catch (_: Exception) {
+            null
+        }
+        if (json == null) {
+            return if (data.startsWith("http")) StreamData(data, null, null, null, null) else null
+        }
+        val url = json.optString("u").ifBlank { null } ?: return null
+        if (!url.startsWith("http")) return null
+        return StreamData(
+            url,
+            json.optString("t").ifBlank { null },
+            json.optInt("y", 0).takeIf { it > 0 },
+            json.optInt("s", 0).takeIf { it > 0 },
+            json.optInt("e", 0).takeIf { it > 0 },
+        )
+    }
+
+    private suspend fun findArabicSubtitle(stream: StreamData): SubtitleFile? {
+        val title = stream.title ?: return null
+        val query = if (stream.season != null && stream.episode != null) {
+            "$title S" + stream.season.toString().padStart(2, '0') +
+                "E" + stream.episode.toString().padStart(2, '0')
+        } else {
+            listOfNotNull(title, stream.year?.toString()).joinToString(" ")
+        }
+
+        val headers = mapOf(
+            "User-Agent" to BROWSER_UA,
+            "Accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Referer" to "$mainUrl/",
+        )
+
+        val search = try {
+            app.get(
+                "$SUB_SOURCE/index.php?search=" + URLEncoder.encode(query, "UTF-8"),
+                headers = headers,
+            ).text
+        } catch (_: Exception) {
+            return null
+        }
+
+        val pages = Regex("""href="(subs/[^"]+\.html)"""")
+            .findAll(search)
+            .map { it.groupValues[1] }
+            .take(3)
+            .toList()
+
+        for (page in pages) {
+            val html = try {
+                app.get("$SUB_SOURCE/$page", headers = headers).text
+            } catch (_: Exception) {
+                continue
+            }
+            val match = Regex("""id="download_ar"[^>]*href="([^"]+)"""").find(html) ?: continue
+            val href = match.groupValues[1]
+            val absolute = when {
+                href.startsWith("http") -> href
+                href.startsWith("/") -> SUB_SOURCE + href
+                else -> "$SUB_SOURCE/$href"
+            }
+            return SubtitleFile("Arabic", absolute.replace(" ", "%20")).apply {
+                this.headers = mapOf("User-Agent" to BROWSER_UA)
+            }
+        }
+        return null
     }
 
     private fun streamTargets(primary: String): List<String> {
