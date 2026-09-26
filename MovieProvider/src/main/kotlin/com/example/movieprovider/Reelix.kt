@@ -3,6 +3,10 @@ package com.example.movieprovider
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.network.WebViewResolver
 import com.lagradost.cloudstream3.utils.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
@@ -25,6 +29,9 @@ class Reelix : MainAPI() {
         const val EPISODES_FN = "fcdfe48157410177238cf68ab5792d838c359a0b054bead22e24f99a5c3f66e9"
         const val RECS_FN = "cc8ece31eba14c95ac1289a8eae31f48cdbd31002a0acd4ff8de6c15a0aae461"
         const val LIST_FN = "ff28fae10dc7928d9028fd470b4ed4f031e0fb1fced20dea02abeafedfb4ed0f"
+        const val PROVIDERS_FN = "788c0690e97bcd9a2b76b55e9d67d1aed390fbf8946c2ead35abe4f8b1464f55"
+
+        const val MAX_ROW_ITEMS = 24
 
         const val BROWSER_UA =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
@@ -48,6 +55,17 @@ class Reelix : MainAPI() {
         "anime" to "Anime (All)",
     )
 
+    // provider chips on the site (<button aria-label=...> /providers/*.svg)
+    private val providerRows = listOf(
+        "Netflix",
+        "Disney+",
+        "Crunchyroll",
+        "Apple TV",
+        "Prime Video",
+        "Max",
+        "Hulu",
+    )
+
     private val autoPlayScript = """
         if (!window.__csPlay) {
             window.__csPlay = 1;
@@ -65,22 +83,51 @@ class Reelix : MainAPI() {
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse? {
         if (page > 1) return null
 
-        val result = callServerFn(HOME_FN, dataObject(listOf("lang" to sStr(API_LANG)))) as? Map<*, *>
-            ?: return null
+        val lists = coroutineScope {
+            val providerJobs = providerRows.map { name -> async { fetchProviderRow(name) } }
 
-        val lists = homeRows.mapNotNull { (key, label) ->
-            val raw = result[key] as? List<*> ?: return@mapNotNull null
-            val items = raw.mapNotNull { itemToResponse(it as? Map<*, *>) }
-            if (items.isEmpty()) null else HomePageList(label, items, true)
-        }.toMutableList()
+            val result = callServerFn(HOME_FN, dataObject(listOf("lang" to sStr(API_LANG)))) as? Map<*, *>
 
-        if (lists.isNotEmpty()) {
-            browseRows.forEach { (key, label) ->
-                fetchBrowseList(key, label)?.let { lists += it }
+            val homeLists = result?.let { home ->
+                homeRows.mapNotNull { (key, label) ->
+                    val raw = home[key] as? List<*> ?: return@mapNotNull null
+                    val items = raw.mapNotNull { itemToResponse(it as? Map<*, *>) }
+                    if (items.isEmpty()) null else HomePageList(label, items, true)
+                }
+            }.orEmpty().toMutableList()
+
+            if (homeLists.isNotEmpty()) {
+                browseRows.forEach { (key, label) ->
+                    fetchBrowseList(key, label)?.let { homeLists += it }
+                }
             }
+
+            homeLists + providerJobs.awaitAll().filterNotNull()
         }
 
         return if (lists.isEmpty()) null else newHomePageResponse(lists)
+    }
+
+    private suspend fun fetchProviderRow(name: String): HomePageList? {
+        val fields = listOf(
+            "name" to sStr(name),
+            "lang" to sStr(API_LANG),
+        )
+
+        var items: List<SearchResponse> = emptyList()
+        for (attempt in 1..3) {
+            val result = try {
+                callServerFn(PROVIDERS_FN, dataObject(fields)) as? List<*>
+            } catch (_: Exception) {
+                null
+            }
+            items = result.orEmpty().mapNotNull { itemToResponse(it as? Map<*, *>) }
+            if (items.isNotEmpty()) break
+            delay(700L * attempt)
+        }
+        if (items.isEmpty()) return null
+
+        return HomePageList("Popular on $name", items.take(MAX_ROW_ITEMS), true)
     }
 
     private suspend fun fetchBrowseList(list: String, label: String): HomePageList? {

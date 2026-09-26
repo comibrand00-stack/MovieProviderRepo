@@ -1,4 +1,4 @@
-version = 12
+version = 13
 
 cloudstream {
     description = "TopCinema, Qesset, Reelix and BingeBang - movies, series and anime providers"
